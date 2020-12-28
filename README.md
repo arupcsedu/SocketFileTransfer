@@ -1,2 +1,6 @@
 # NWFileTransfer
-A Socket based file transfer assignment. 1. Send Multiple file concurrently 2. Check Integrity by calculate checksum
+A Socket based file transfer assignment. 
+
+Requirements: 
+1. Send Multiple file concurrently from client to Server 
+2. Check Integrity by calculate checksum
