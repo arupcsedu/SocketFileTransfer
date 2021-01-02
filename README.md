@@ -1,5 +1,6 @@
 # NWFileTransfer
-A Socket based file transfer assignment. 
+A Socket based file transfer assignment based on BSD socket.
+Development Environment: Ubuntu 18.04
 
 ## Requirements: 
 1. Send Multiple file concurrently from client to Server 
@@ -22,6 +23,22 @@ A Socket based file transfer assignment.
 - [ ] Create a dataset with 100 files each 10MB size and transfer with concurrency 1, 2,4 and 8 and measure throughput. 
 - [ ] Once the test is done, draw a figure for concurrency value vs throughput.
 
+## Prepare
+
+$ git pull https://github.com/arupcsedu/NWFileTransfer.git
+$ cd NWFileTransfer
+
+## Build and Run Server
+
+$ cd NWServer
+$ g++ NWServer.cpp -o NWServer
+$ ./NWServer
+
+## Build and Run Client
+$ cd ..
+$ cd NWClient
+$ g++ NWClient.cpp -o NWClient
+$ ./NWClient res 127.0.0.1
 
 
 
