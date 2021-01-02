@@ -25,20 +25,20 @@ Development Environment: Ubuntu 18.04
 
 ## Prepare
 
-$ git pull https://github.com/arupcsedu/NWFileTransfer.git
-$ cd NWFileTransfer
+$ git pull https://github.com/arupcsedu/NWFileTransfer.git  
+$ cd NWFileTransfer  
 
 ## Build and Run Server
 
-$ cd NWServer
-$ g++ NWServer.cpp -o NWServer
-$ ./NWServer
+$ cd NWServer  
+$ g++ NWServer.cpp -o NWServer  
+$ ./NWServer  
 
 ## Build and Run Client
-$ cd ..
-$ cd NWClient
-$ g++ NWClient.cpp -o NWClient
-$ ./NWClient res 127.0.0.1
+$ cd ..  
+$ cd NWClient   
+$ g++ NWClient.cpp -o NWClient  
+$ ./NWClient res 127.0.0.1   
 
 
 
