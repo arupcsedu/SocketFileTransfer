@@ -24,21 +24,22 @@ Development Environment: Ubuntu 18.04
 - [ ] Once the test is done, draw a figure for concurrency value vs throughput.
 
 ## Prepare
-
+```c++
 $ git pull https://github.com/arupcsedu/NWFileTransfer.git  
 $ cd NWFileTransfer  
-
+```
 ## Build and Run Server
-
+```c++
 $ cd NWServer  
 $ g++ NWServer.cpp -o NWServer  
 $ ./NWServer  
-
+```
 ## Build and Run Client
+```c++
 $ cd ..  
 $ cd NWClient   
 $ g++ NWClient.cpp -o NWClient  
 $ ./NWClient res 127.0.0.1   
-
+```
 
 
