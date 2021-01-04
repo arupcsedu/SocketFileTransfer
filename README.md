@@ -13,11 +13,11 @@ Development Environment: Ubuntu 18.04
 - [x] Send multiple text files from client.
 - [x] Read all files from client directory /res and send to server
 - [x] Limit the receiving file to 10 at server for debug purpose. This will be change later.
-- [ ] Get Clarfication from Dr. Arslan about TCP checkSum requirements.
+- [x] Get Clarfication from Dr. Arslan about TCP checkSum requirements.
 - [ ] Develop utility functions for calculate checkSum at Client and Server program.
-- [ ] Write Sample program about pThread to test concurrency.
-- [ ] Add concurrency using pThread into client and server program.
-- [ ] Use pack tracer to check concurrency at client and server interface.
+- [x] Write Sample program about pThread to test concurrency.
+- [x] Add concurrency using pThread into client and server program.
+- [x] Use pack tracer to check concurrency at client and server interface.
 - [ ] Rewrite the logic of sending/receiving file and implement logic for sending generic file not just text file.
 - [ ] Test the prgramm by sending image or other type of files.
 - [ ] Create a dataset with 100 files each 10MB size and transfer with concurrency 1, 2,4 and 8 and measure throughput. 
@@ -31,14 +31,14 @@ $ cd NWFileTransfer
 ## Build and Run Server
 ```c++
 $ cd NWServer  
-$ g++ NWServer.cpp -o NWServer  
+$ g++ NWServer.cpp -o NWServer -pthread
 $ ./NWServer  
 ```
 ## Build and Run Client
 ```c++
 $ cd ..  
 $ cd NWClient   
-$ g++ NWClient.cpp -o NWClient  
+$ g++ NWClient.cpp -o NWClient -pthread
 $ ./NWClient res 127.0.0.1   
 ```
 
