@@ -20,12 +20,22 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <pthread.h> 
+
 
 #define MAX_LENGTH_OF_SINGLE_LINE 4096
-
 #define SERVER_PORT 5080
-
 #define BUFFER_SIZE 4096
+#define MAX_FILE_COUNT 1000
+
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+typedef struct Threadparam {
+	char fileName[BUFFER_SIZE];
+	char filePath[BUFFER_SIZE];
+	char serverIP[20];
+} TP;
+
+pthread_t tid[MAX_FILE_COUNT];
 
 void fileSender(FILE *filePointer, int sockfd) {
     // 13.1 Declare the data size
@@ -42,7 +52,7 @@ void fileSender(FILE *filePointer, int sockfd) {
         }
 
         // 13.4 Send each line from buffer through TCP socket
-        if (write(sockfd, lineBuffer, maxLen) == -1) {
+        if (send(sockfd, lineBuffer, maxLen,0) == -1) {
             perror("Unable to send file");
             exit(1);
         }
@@ -51,127 +61,180 @@ void fileSender(FILE *filePointer, int sockfd) {
 }
 // ToDo : Add checkSum calculation method
 
+void *threadForFileTransfer(void *vargp) 
+{ 
+	TP *sockParams = (TP *) vargp;
+
+	if(sockParams == NULL) {
+		printf("Socket Param Error");
+		exit(1);
+	}
+	
+	
+
+
+	// 2. Create TCP Socket
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		perror("Unable to create Socket");
+		exit(1);
+	}
+
+	// 3. Setup information about server
+	struct sockaddr_in serverAddress;
+	memset(&serverAddress, 0, sizeof(serverAddress));
+
+	// 4. IP address should be IPv4
+	serverAddress.sin_family = AF_INET;
+	serverAddress.sin_port = htons(SERVER_PORT);
+
+	// 5. Check IP adddres and convert it with inet_pton
+	if (inet_pton(AF_INET, sockParams->serverIP, &serverAddress.sin_addr) < 0) {
+		perror("Conversion Error in IP Address");
+		exit(1);
+	}
+
+	// 6. Client will connect after server bind
+	if (connect(sockfd, (const struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
+		perror("Unable to Connect");
+		exit(1);
+	}
+	pthread_mutex_lock(&lock);
+	// 11. Send file name from buffer data through socket so that server can create file with same name.
+	
+
+	if (send(sockfd, sockParams->fileName, BUFFER_SIZE, 0) == -1) {
+		perror("Unable to send Filename");
+		exit(1);
+	}
+	pthread_mutex_unlock(&lock);
+	sleep(1);
+	// 12. Create File pointers
+
+
+	FILE *filePointer = fopen(sockParams->filePath, "rb");
+	if (filePointer == NULL) {
+		perror("Unable to open the file");
+		exit(1);
+	}
+
+	// 13. Send file through socket.
+	pthread_mutex_lock(&lock);
+	fileSender(filePointer, sockfd);
+	printf("%s file is sent successfully.\n",sockParams->fileName);
+	pthread_mutex_unlock(&lock);
+	sleep(1);
+
+	// 14. Close the file pointer
+	fclose(filePointer);
+
+
+	// 15. Close socket after sending single file.
+	// 16. ToDo: Keep Socket open until sending all files concurrently from a directory.
+	close(sockfd);
+	pthread_exit(NULL);
+} 
+
+
 int main(int argc, char* argv[]) {
-    // 1. Check the parameters from command line argument
-    if (argc != 3) {
-        perror("IP address is missing");
-        exit(1);
-    }
+	// 1. Check the parameters from command line argument
+	if (argc != 3) {
+		perror("IP address is missing");
+		exit(1);
+	}
+	
+	if (pthread_mutex_init(&lock, NULL) != 0)
+    	{
+        	printf("mutex init failed");
+        	return 1;
+    	}
+	// 7. Take file name input from command line argument. This will be changed when we will read files from directory
+	// 8. ToDo : Replace with directory path and read all the files from directory
+	// Status : Done
 
-    // 2. Create TCP Socket
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        perror("Unable to create Socket");
-        exit(1);
-    }
+	char *dirName = basename(argv[1]);
+	if (dirName == NULL) {
+		perror("Unable to get dirName");
+		exit(1);
+	}
 
-    // 3. Setup information about server
-    struct sockaddr_in serverAddress;
-    memset(&serverAddress, 0, sizeof(serverAddress));
+	// Read All the file list from directory
 
-    // 4. IP address should be IPv4
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(SERVER_PORT);
+	DIR *dirPtr = opendir (dirName);
 
-    // 5. Check IP adddres and convert it with inet_pton
-    if (inet_pton(AF_INET, argv[2], &serverAddress.sin_addr) < 0) {
-        perror("Conversion Error in IP Address");
-        exit(1);
-    }
+	// validate directory open
+	if (!dirPtr) {
+		char errbuf[PATH_MAX] = "";
+		sprintf (errbuf, "opendir failed on '%s'", dirName);
+		perror (errbuf);
+		return EXIT_FAILURE;
+	}
+	printf("Directory name : %s\n", dirName);
 
-    // 6. Client will connect after server bind
-    if (connect(sockfd, (const struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
-        perror("Unable to Connect");
-        exit(1);
-    }
+	struct dirent *dir;
+	TP *params = NULL; 
+	int idx = 0;
+	char filePathList[MAX_FILE_COUNT][BUFFER_SIZE] = {0};
+	char fileNameList[MAX_FILE_COUNT][BUFFER_SIZE] = {0};
 
-    // 7. Take file name input from command line argument. This will be changed when we will read files from directory
-    // 8. ToDo : Replace with directory path and read all the files from directory
-    // Status : Done
+	if(dirPtr!=NULL) {
+		int flag = 0;
 
-    char *dirName = basename(argv[1]);
-    if (dirName == NULL) {
-        perror("Unable to get dirName");
-        exit(1);
-    }
+		while((dir=readdir(dirPtr))!=NULL) {
+			if((strcmp(dir->d_name,".")==0 || strcmp(dir->d_name,"..")==0 || (*dir->d_name) == '.' )){
+			}
+			else
+			{
+				// 9. Define and Initialize the Buffer
+				// ToDo :  Add Concurrency for sending multiple files
+				//Status : Done
+				char buff[BUFFER_SIZE] = {0};
+				char fileWithPath[BUFFER_SIZE] = {0};
 
-    // Read All the file list from directory
+				strcat(fileWithPath, dirName);
+				strcat(fileWithPath, "/");
 
-    DIR *dirPtr = opendir (dirName);
+				strcat(fileWithPath, dir->d_name);
+				// 10. Copy the file name into Buffer
+				strncpy(buff, dir->d_name, strlen(dir->d_name));
+				strcpy(fileNameList[idx], buff);
+				strcpy(filePathList[idx], fileWithPath);
 
-    // validate directory open
-    if (!dirPtr) {
-        char errbuf[PATH_MAX] = "";
-        sprintf (errbuf, "opendir failed on '%s'", dirName);
-        perror (errbuf);
-        return EXIT_FAILURE;
-    }
-    printf("Directory name : %s\n", dirName);
+				printf("%s\n", filePathList[idx]);
+				idx++;
+			}
+		}
+	}
+	//closedir (dirPtr);
 
-    struct dirent *dir;
-
-    if(dirPtr!=NULL) {
-    int flag = 0;
-        while((dir=readdir(dirPtr))!=NULL) {
-            if((strcmp(dir->d_name,".")==0 || strcmp(dir->d_name,"..")==0 || (*dir->d_name) == '.' )){
-            }
-            else
-            {
-                // 9. Define and Initialize the Buffer
-                // ToDo :  Add Concurrency for sending multiple files
-                char buff[BUFFER_SIZE] = {0};
-                char fileWithPath[BUFFER_SIZE] = {0};
-
-                strcat(fileWithPath, dirName);
-                strcat(fileWithPath, "/");
-
-                strcat(fileWithPath, dir->d_name);
-                // 10. Copy the file name into Buffer
-                strncpy(buff, dir->d_name, strlen(dir->d_name));
-
-                printf("%s\n",buff);
-
-                // 11. Send file name from buffer data through socket so that server can create file with same name.
-                char ackBuff[MAX_LENGTH_OF_SINGLE_LINE] = {0};
-                int noOfLines;
-                if(flag)
-                     noOfLines = read(sockfd, ackBuff, MAX_LENGTH_OF_SINGLE_LINE);
-
-                printf("Size : %d  Received: %s\n", noOfLines, ackBuff);
-                if((noOfLines > 0 && strlen(ackBuff) > 1) || flag == 0) {
-
-
-                    if (write(sockfd, buff, BUFFER_SIZE) == -1) {
-                        perror("Unable to send Filename");
-                        exit(1);
-                    }
-                    flag = 1;
-
-                    // 12. Create File pointers
-
-                    FILE *filePointer = fopen(fileWithPath, "rb");
-                    if (filePointer == NULL) {
-                        perror("Unable to open the file");
-                        exit(1);
-                    }
-
-                    // 13. Send file through socket.
-                    fileSender(filePointer, sockfd);
-                    printf("File is sent successfully.\n");
-
-                    // 14. Close the file pointer
-                    fclose(filePointer);
-                }
-            }
-        }
-    }
-
-    closedir (dirPtr);
-
-    // 15. Close socket after sending single file.
-    // 16. ToDo: Keep Socket open until sending all files concurrently from a directory.
-    close(sockfd);
-    return 0;
+	int i = 0;
+	while(i != idx)
+	{
+		char *filename = (char*) malloc(sizeof(char));
+		params = (TP*) malloc(sizeof(TP));
+		strcpy(params->fileName, fileNameList[i]); 
+		strcpy(params->filePath, filePathList[i]);
+		strcpy(params->serverIP, argv[2]);
+		//filename = fileList[i];
+		//printf("%s\n", filename);
+		if(pthread_create(&tid[i], NULL, threadForFileTransfer, (void*)params) != 0 ) {
+			printf("Failed to create thread\n");
+			exit(1);
+		}
+	
+		printf("Thread creation : %d\n", i);
+		i++;
+	}
+	sleep(20);
+	i = 0;
+	while(i != idx)
+	{
+		pthread_join(tid[i++],NULL);
+		printf("%d:\n",i);
+	}
+	closedir (dirPtr);
+	pthread_mutex_destroy(&lock); 
+	return 0;
 }
 
 
