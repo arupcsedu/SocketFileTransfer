@@ -19,7 +19,7 @@ Development Environment: Ubuntu 18.04
 - [x] Add concurrency using pThread into client and server program.
 - [x] Use pack tracer to check concurrency at client and server interface.
 - [x] Dynamic concurrency number from user inputs.
-- [ ] Create a dataset with 100 files each 10MB size and transfer with concurrency 1, 2,4 and 8 and measure throughput. 
+- [x] Create a dataset with 100 files and transfer with concurrency 1, 2,4 and 8 and measure throughput. 
 - [ ] Once the test is done, draw a figure for concurrency value vs throughput.
 
 ## Prepare
