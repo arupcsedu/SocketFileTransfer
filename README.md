@@ -18,6 +18,7 @@ Development Environment: Ubuntu 18.04
 - [x] Write Sample program about pThread to test concurrency.
 - [x] Add concurrency using pThread into client and server program.
 - [x] Use pack tracer to check concurrency at client and server interface.
+- [x] Dynamic concurrency number from user inputs.
 - [ ] Create a dataset with 100 files each 10MB size and transfer with concurrency 1, 2,4 and 8 and measure throughput. 
 - [ ] Once the test is done, draw a figure for concurrency value vs throughput.
 
@@ -37,7 +38,12 @@ $ ./NWServer
 $ cd ..  
 $ cd NWClient   
 $ g++ NWClient.cpp -o NWClient -pthread
-$ ./NWClient res 127.0.0.1   
+$ ./NWClient res 127.0.0.1 4
+
+// argv[0] = ./NWClient (Executable)
+// argv[1] = res (Input directory)
+// argv[2] = 127.0.0.1 (loopback ip address to run in same pc. But it can be replaced by server ip address)
+// argv[3] = 4 (Number of files can be sent concurrently)
 ```
 
 
