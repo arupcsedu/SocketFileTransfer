@@ -29,14 +29,15 @@
 #define SERVER_PORT 5080
 
 #define BUFFER_SIZE 4096
-#define MAX_THREAD 4 // ToDo: This will be Dynamic
+#define MAX_THREAD 4 
+// ToDo: This will be Dynamic; 
+// Status: Done
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 void* socketThreadFT(void *arg);
 
 
 //CheckSum Calculation
-
 unsigned calculateChecksum(void *buffer, size_t len)
 {
 	unsigned char *buf = (unsigned char *)buffer;
@@ -100,12 +101,10 @@ void* socketThreadFT(void *arg)
 
 	int fileLength = strlen(filename);
 
-	//pthread_mutex_unlock(&lock);
 
 	if(fileLength > 0) {
 		// 9. After receiving from client, create file to save data
 
-		// fileCount++;
 		printf("File Name : %s\n", filename);
 		FILE *fp = fopen(filename, "wb");
 		if (fp == NULL) {
@@ -115,10 +114,8 @@ void* socketThreadFT(void *arg)
 
 		// 10. Start receiving file Data and print in console
 		char addr[INET_ADDRSTRLEN];
-		// printf("File is receiving: %s from %s\n", filename, inet_ntop(AF_INET, &nwClientAddr.sin_addr, addr, INET_ADDRSTRLEN));
 
 		// 11. Write the data into file.
-		// pthread_mutex_lock(&lock);
 
 		checkSum = fileWriter(connfd, fp);
 
@@ -189,6 +186,28 @@ int main(int argc, char *argv[]) {
 		perror("Error in Socket Listening");
 		exit(1);
 	}
+	
+
+	// 6. Accept connection for concurrency number
+	socklen_t adlen = sizeof(nwClientAddr);
+	int cfd = accept(sockfd, (struct sockaddr *) &nwClientAddr, &adlen);
+	if (cfd == -1) {
+		perror("Error in Accepting Connection for ");
+		exit(1);
+	}
+	int val = 0;
+	pthread_mutex_lock(&lock);
+
+	char conString[BUFFER_SIZE] = {0};
+	if (recv(cfd, conString, BUFFER_SIZE,0) == -1) {
+		perror("Unable to receive concurrency due to connection or file error");
+		exit(1);
+	}
+	char *numstr = basename(conString);
+	val = atoi(numstr);
+	printf("Concurrency Number: %d\n", val);
+	close(cfd);
+	pthread_mutex_unlock(&lock);
 
 	
 	int i = 0;
@@ -197,7 +216,7 @@ int main(int argc, char *argv[]) {
 	int idx = 0;
 	while(1) {
 
-		// 6. Accept connection
+		// 7. Accept connection for creating multi-thread
 		socklen_t addrlen = sizeof(nwClientAddr);
 		int connfd = accept(sockfd, (struct sockaddr *) &nwClientAddr, &addrlen);
 		if (connfd == -1) {
@@ -208,15 +227,16 @@ int main(int argc, char *argv[]) {
 		new_sock = (int*)malloc(1);
 		*new_sock = connfd;
 		printf("Connection ID: %d\n", *new_sock);
-
+		// 8. Multi-Thread creation
 		if(pthread_create(&tid[idx], NULL, socketThreadFT, (void*)new_sock) < 0 ) {
 			printf("Failed to create thread\n");
 			exit(1);
 		}
 		idx++;	
-	       if(idx == MAX_THREAD) {
+		// 9. Thread Execute 
+		if(idx == val) {
 			idx = 0;
-			while(idx != MAX_THREAD) {
+			while(idx != val) {
 				pthread_join(tid[idx++],NULL);
 			}
 			i = 0;
@@ -225,7 +245,6 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	//close(connfd);
 	close(sockfd);
 	pthread_mutex_destroy(&lock); 
 	return 0;

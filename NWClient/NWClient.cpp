@@ -83,8 +83,6 @@ void *threadForFileTransfer(void *vargp)
 		exit(1);
 	}
 	
-	
-
 
 	// 2. Create TCP Socket
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -156,26 +154,71 @@ void *threadForFileTransfer(void *vargp)
 
 
 	// 15. Close socket after sending single file.
-	// 16. ToDo: Keep Socket open until sending all files concurrently from a directory.
 	close(sockfd);
 	pthread_exit(NULL);
 } 
+void sendConcurrencyNumber(char *ipAddr, int noOfconcurrency) {
+	// 1. Utility functions for sending concurrency
+	
+
+	// 2. Create TCP Socket
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		perror("Unable to create Socket");
+		exit(1);
+	}
+
+	// 3. Setup information about server
+	struct sockaddr_in serverAddress;
+	memset(&serverAddress, 0, sizeof(serverAddress));
+
+	// 4. IP address should be IPv4
+	serverAddress.sin_family = AF_INET;
+	serverAddress.sin_port = htons(SERVER_PORT);
+
+	// 5. Check IP adddres and convert it with inet_pton
+	if (inet_pton(AF_INET, ipAddr, &serverAddress.sin_addr) < 0) {
+		perror("Conversion Error in IP Address");
+		exit(1);
+	}
+
+	// 6. Client will connect after server bind
+	if (connect(sockfd, (const struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
+		perror("Unable to Connect");
+		exit(1);
+	}
+
+ 
+	char numberstring[BUFFER_SIZE];
+	sprintf(numberstring, "%d", noOfconcurrency);
+
+	if (send(sockfd, numberstring, BUFFER_SIZE, 0) == -1) {
+		perror("Unable to send Concurrency");
+		exit(1);
+	}
+
+	close(sockfd);
+
+}
 
 
 int main(int argc, char* argv[]) {
 	// 1. Check the parameters from command line argument
-	if (argc != 3) {
+	if (argc < 3) {
 		perror("IP address is missing");
 		exit(1);
 	}
+	if (argc < 4) {
+		perror("Concurrency argument is missing");
+		exit(1);
+	}
 	
-	if (pthread_mutex_init(&lock, NULL) != 0)
-    	{
+	if (pthread_mutex_init(&lock, NULL) != 0) {
         	printf("mutex init failed");
         	return 1;
     	}
-	// 7. Take file name input from command line argument. This will be changed when we will read files from directory
-	// 8. ToDo : Replace with directory path and read all the files from directory
+	// 2. Take file name input from command line argument. This will be changed when we will read files from directory
+	// 3. ToDo : Replace with directory path and read all the files from directory
 	// Status : Done
 
 	char *dirName = basename(argv[1]);
@@ -184,11 +227,11 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 
-	// Read All the file list from directory
+	// 4. Read All the file list from directory
 
 	DIR *dirPtr = opendir (dirName);
 
-	// validate directory open
+	// 5. validate directory open
 	if (!dirPtr) {
 		char errbuf[PATH_MAX] = "";
 		sprintf (errbuf, "opendir failed on '%s'", dirName);
@@ -211,8 +254,8 @@ int main(int argc, char* argv[]) {
 			}
 			else
 			{
-				// 9. Define and Initialize the Buffer
-				// ToDo :  Add Concurrency for sending multiple files
+				// 6. Define and Initialize the Buffer
+				// 7. ToDo :  Add Concurrency for sending multiple files
 				//Status : Done
 				char buff[BUFFER_SIZE] = {0};
 				char fileWithPath[BUFFER_SIZE] = {0};
@@ -221,7 +264,7 @@ int main(int argc, char* argv[]) {
 				strcat(fileWithPath, "/");
 
 				strcat(fileWithPath, dir->d_name);
-				// 10. Copy the file name into Buffer
+				// 8. Copy the file name into Buffer
 				strncpy(buff, dir->d_name, strlen(dir->d_name));
 				strcpy(fileNameList[idx], buff);
 				strcpy(filePathList[idx], fileWithPath);
@@ -231,7 +274,19 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	}
-	//closedir (dirPtr);
+	
+	// 9. Send Concurrency Number
+	char *numstr = basename(argv[3]);
+	int val = atoi(numstr);
+	// 10. if number of files in a directory is less than concurrent number, replace it.
+	if(val > idx) {
+		printf("Maximum possible number of concurrency: %d\n", idx);	
+		sendConcurrencyNumber(argv[2], idx);
+	}
+	else {
+		idx = val;
+		sendConcurrencyNumber(argv[2], idx);	
+	}
 
 	int i = 0;
 	while(i != idx)
@@ -241,8 +296,7 @@ int main(int argc, char* argv[]) {
 		strcpy(params->fileName, fileNameList[i]); 
 		strcpy(params->filePath, filePathList[i]);
 		strcpy(params->serverIP, argv[2]);
-		//filename = fileList[i];
-		//printf("%s\n", filename);
+		// 11. Create multi-thread for each files
 		if(pthread_create(&tid[i], NULL, threadForFileTransfer, (void*)params) != 0 ) {
 			printf("Failed to create thread\n");
 			exit(1);
@@ -253,6 +307,7 @@ int main(int argc, char* argv[]) {
 	}
 	sleep(20);
 	i = 0;
+	// 12. Execute Thread
 	while(i != idx)
 	{
 		pthread_join(tid[i++],NULL);
