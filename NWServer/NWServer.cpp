@@ -35,14 +35,30 @@ pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 void* socketThreadFT(void *arg);
 
 
+//CheckSum Calculation
+
+unsigned calculateChecksum(void *buffer, size_t len)
+{
+	unsigned char *buf = (unsigned char *)buffer;
+	size_t i;
+	unsigned int checkSum = 0;
+
+	for (i = 0; i < len; ++i)
+	    checkSum += (unsigned int)(*buf++);
+	return checkSum;
+}
+
 // This is a utility function for writing data into file
 
-void fileWriter(int sockfd, FILE *fp) {
+unsigned int fileWriter(int sockfd, FILE *fp) {
 	// 11.1 Declare data length
 	ssize_t n;
 	// 11.2 Declare and Initialize buffer size
+	unsigned int checkSum = 0;
 	char buff[MAX_LENGTH_OF_SINGLE_LINE] = {0};
 	n = recv(sockfd, buff, MAX_LENGTH_OF_SINGLE_LINE,0);
+
+	checkSum += calculateChecksum(buff, n);
 
 	// 11.3 Receive data from socket and save into buffer
 	if(n > 0) {
@@ -63,40 +79,16 @@ void fileWriter(int sockfd, FILE *fp) {
 	}
 	printf("End of File Writer\n");
 	fclose(fp);
-	close(sockfd);
+	return checkSum;
 }
 
-//CheckSum Calculation
 
-int checkSumCalculation(const void * addr, unsigned len, uint16_t init) {
-	int sum;
-	const int *word;
-
-	sum = init;
-	word = (const int *) addr;
-
-
-	while (len >= 2) {
-		sum += *(word++);
-		len -= 2;
-	}
-
-	if (len > 0) {
-		int tmp;
-
-		*(int *)(&tmp) = *(int *)word;
-		sum += tmp;
-	}
-
-	sum = (sum >> 16) + (sum & 0xffff);
-	sum += (sum >> 16);
-	return ((int)~sum);
-}
 
 void* socketThreadFT(void *arg)
 {
 	int connfd = *((int *)arg);
 	//printf("Connection ID : %d\n", connfd);
+	unsigned int checkSum = 0;
 
 	pthread_mutex_lock(&lock);
 	 // 8. Receive incoming file from client
@@ -127,19 +119,38 @@ void* socketThreadFT(void *arg)
 
 		// 11. Write the data into file.
 		// pthread_mutex_lock(&lock);
-		// flock(fp, LOCK_EX);
-		fileWriter(connfd, fp);
-		//flock(fp, LOCK_UN);
+
+		checkSum = fileWriter(connfd, fp);
 
 		// 12. Print success message into console
-		printf("Received file name : %s\n",filename);
+
 		pthread_mutex_unlock(&lock);
 		sleep(1);
+		
+		pthread_mutex_lock(&lock);
+		// 13. Receive incoming checkSum from client
+		char numberstring[BUFFER_SIZE] = {0};
+		if (recv(connfd, numberstring, BUFFER_SIZE,0) == -1) {
+			perror("Unable to receive file due to connection or file error");
+			exit(1);
+		}
+		char checkSumstring[BUFFER_SIZE];
+		sprintf(checkSumstring, "%d", checkSum);
+		printf("Calculated CheckSum: %s and Received CheckSum : %s\n", (char*)checkSumstring, (char*)numberstring);
+		
+		if(strcmp(checkSumstring, numberstring))
+			printf("Error in receiving file.\n");
+		else
+			printf("Received file name : %s\n",filename);
+		pthread_mutex_unlock(&lock);
+		sleep(1);
+
+			
 
 
 	}
 		       
-	//close(connfd);
+	close(connfd);
 	pthread_exit(NULL);
 
 }

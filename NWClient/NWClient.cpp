@@ -37,27 +37,40 @@ typedef struct Threadparam {
 
 pthread_t tid[MAX_FILE_COUNT];
 
-void fileSender(FILE *filePointer, int sockfd) {
-    // 13.1 Declare the data size
-    int maxLen;
+unsigned calculateChecksum(void *buffer, size_t len)
+{
+	unsigned char *buf = (unsigned char *)buffer;
+	size_t i;
+	unsigned int checkSum = 0;
 
-    // 13.2 Declare and Initalize the buffer for a single file
-    char lineBuffer[MAX_LENGTH_OF_SINGLE_LINE] = {0};
+	for (i = 0; i < len; ++i)
+	    checkSum += (unsigned int)(*buf++);
+	return checkSum;
+}
 
-    // 13.3 Read the data from file in a loop
-    while ((maxLen = fread(lineBuffer, sizeof(char), MAX_LENGTH_OF_SINGLE_LINE, filePointer)) > 0) {
-        if (maxLen != MAX_LENGTH_OF_SINGLE_LINE && ferror(filePointer)) {
-            perror("Unable to read file");
-            exit(1);
-        }
+unsigned int fileSender(FILE *filePointer, int sockfd) {
+	// 13.1 Declare the data size
+	int maxLen;
 
-        // 13.4 Send each line from buffer through TCP socket
-        if (send(sockfd, lineBuffer, maxLen,0) == -1) {
-            perror("Unable to send file");
-            exit(1);
-        }
-        memset(lineBuffer, 0, MAX_LENGTH_OF_SINGLE_LINE);
-    }
+	// 13.2 Declare and Initalize the buffer for a single file
+	char lineBuffer[MAX_LENGTH_OF_SINGLE_LINE] = {0};
+	unsigned int checkSum = 0;
+
+	// 13.3 Read the data from file in a loop
+	while ((maxLen = fread(lineBuffer, sizeof(char), MAX_LENGTH_OF_SINGLE_LINE, filePointer)) > 0) {
+	if (maxLen != MAX_LENGTH_OF_SINGLE_LINE && ferror(filePointer)) {
+	    perror("Unable to read file");
+	    exit(1);
+	}
+	checkSum += calculateChecksum(lineBuffer, maxLen);
+	// 13.4 Send each line from buffer through TCP socket
+	if (send(sockfd, lineBuffer, maxLen,0) == -1) {
+	    perror("Unable to send file");
+	    exit(1);
+	}
+	memset(lineBuffer, 0, MAX_LENGTH_OF_SINGLE_LINE);
+	}
+	return checkSum;
 }
 // ToDo : Add checkSum calculation method
 
@@ -117,13 +130,26 @@ void *threadForFileTransfer(void *vargp)
 		perror("Unable to open the file");
 		exit(1);
 	}
-
+	unsigned int checkSum = 0;
 	// 13. Send file through socket.
 	pthread_mutex_lock(&lock);
-	fileSender(filePointer, sockfd);
+	checkSum = fileSender(filePointer, sockfd);
 	printf("%s file is sent successfully.\n",sockParams->fileName);
 	pthread_mutex_unlock(&lock);
 	sleep(1);
+
+ 
+	char numberstring[BUFFER_SIZE];
+	sprintf(numberstring, "%d", checkSum);
+	printf("CheckSum is: %s \n", (char*)numberstring);
+
+	//pthread_mutex_lock(&lock);
+	if (send(sockfd, numberstring, BUFFER_SIZE, 0) == -1) {
+		perror("Unable to send CheckSum");
+		exit(1);
+	}
+	//pthread_mutex_unlock(&lock);
+	//sleep(1);
 
 	// 14. Close the file pointer
 	fclose(filePointer);
