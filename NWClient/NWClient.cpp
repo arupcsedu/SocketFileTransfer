@@ -25,13 +25,14 @@
 
 #define MAX_LENGTH_OF_SINGLE_LINE 4096
 #define SERVER_PORT 5080
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 100000
 #define MAX_FILE_COUNT 1000
+#define MAX_NAME 1000
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 typedef struct Threadparam {
-	char fileName[BUFFER_SIZE];
-	char filePath[BUFFER_SIZE];
+	char fileName[MAX_NAME];
+	char filePath[MAX_NAME];
 	char serverIP[20];
 } TP;
 
@@ -53,12 +54,12 @@ unsigned int fileSender(FILE *filePointer, int sockfd) {
 	int maxLen;
 
 	// 13.2 Declare and Initalize the buffer for a single file
-	char lineBuffer[MAX_LENGTH_OF_SINGLE_LINE] = {0};
+	char lineBuffer[BUFFER_SIZE] = {0};
 	unsigned int checkSum = 0;
 
 	// 13.3 Read the data from file in a loop
-	while ((maxLen = fread(lineBuffer, sizeof(char), MAX_LENGTH_OF_SINGLE_LINE, filePointer)) > 0) {
-	if (maxLen != MAX_LENGTH_OF_SINGLE_LINE && ferror(filePointer)) {
+	while ((maxLen = fread(lineBuffer, sizeof(char), BUFFER_SIZE, filePointer)) > 0) {
+	if (maxLen != BUFFER_SIZE && ferror(filePointer)) {
 	    perror("Unable to read file");
 	    exit(1);
 	}
@@ -68,7 +69,7 @@ unsigned int fileSender(FILE *filePointer, int sockfd) {
 	    perror("Unable to send file");
 	    exit(1);
 	}
-	memset(lineBuffer, 0, MAX_LENGTH_OF_SINGLE_LINE);
+	memset(lineBuffer, 0, BUFFER_SIZE);
 	}
 	return checkSum;
 }
@@ -114,7 +115,7 @@ void *threadForFileTransfer(void *vargp)
 	// 11. Send file name from buffer data through socket so that server can create file with same name.
 	
 
-	if (send(sockfd, sockParams->fileName, BUFFER_SIZE, 0) == -1) {
+	if (send(sockfd, sockParams->fileName, MAX_NAME, 0) == -1) {
 		perror("Unable to send Filename");
 		exit(1);
 	}
@@ -137,12 +138,12 @@ void *threadForFileTransfer(void *vargp)
 	sleep(1);
 
  
-	char numberstring[BUFFER_SIZE];
+	char numberstring[MAX_NAME];
 	sprintf(numberstring, "%d", checkSum);
 	printf("CheckSum is: %s \n", (char*)numberstring);
 
 	//pthread_mutex_lock(&lock);
-	if (send(sockfd, numberstring, BUFFER_SIZE, 0) == -1) {
+	if (send(sockfd, numberstring, MAX_NAME, 0) == -1) {
 		perror("Unable to send CheckSum");
 		exit(1);
 	}
@@ -189,10 +190,10 @@ void sendConcurrencyNumber(char *ipAddr, int noOfconcurrency) {
 	}
 
  
-	char numberstring[BUFFER_SIZE];
+	char numberstring[MAX_NAME];
 	sprintf(numberstring, "%d", noOfconcurrency);
 
-	if (send(sockfd, numberstring, BUFFER_SIZE, 0) == -1) {
+	if (send(sockfd, numberstring, MAX_NAME, 0) == -1) {
 		perror("Unable to send Concurrency");
 		exit(1);
 	}
@@ -243,8 +244,8 @@ int main(int argc, char* argv[]) {
 	struct dirent *dir;
 	TP *params = NULL; 
 	int idx = 0;
-	char filePathList[MAX_FILE_COUNT][BUFFER_SIZE] = {0};
-	char fileNameList[MAX_FILE_COUNT][BUFFER_SIZE] = {0};
+	char filePathList[MAX_FILE_COUNT][MAX_NAME] = {0};
+	char fileNameList[MAX_FILE_COUNT][MAX_NAME] = {0};
 
 	if(dirPtr!=NULL) {
 		int flag = 0;
@@ -257,8 +258,8 @@ int main(int argc, char* argv[]) {
 				// 6. Define and Initialize the Buffer
 				// 7. ToDo :  Add Concurrency for sending multiple files
 				//Status : Done
-				char buff[BUFFER_SIZE] = {0};
-				char fileWithPath[BUFFER_SIZE] = {0};
+				char buff[MAX_NAME] = {0};
+				char fileWithPath[MAX_NAME] = {0};
 
 				strcat(fileWithPath, dirName);
 				strcat(fileWithPath, "/");

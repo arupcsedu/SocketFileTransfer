@@ -28,7 +28,8 @@
 
 #define SERVER_PORT 5080
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 100000
+#define MAX_NAME 1000
 #define MAX_THREAD 4 
 // ToDo: This will be Dynamic; 
 // Status: Done
@@ -56,8 +57,8 @@ unsigned int fileWriter(int sockfd, FILE *fp) {
 	ssize_t n;
 	// 11.2 Declare and Initialize buffer size
 	unsigned int checkSum = 0;
-	char buff[MAX_LENGTH_OF_SINGLE_LINE] = {0};
-	n = recv(sockfd, buff, MAX_LENGTH_OF_SINGLE_LINE,0);
+	char buff[BUFFER_SIZE] = {0};
+	n = recv(sockfd, buff, BUFFER_SIZE,0);
 
 	checkSum += calculateChecksum(buff, n);
 
@@ -76,7 +77,7 @@ unsigned int fileWriter(int sockfd, FILE *fp) {
 
 		printf("File content is : %s\n", buff);
 		// Allocate buffer
-		memset(buff, 0, MAX_LENGTH_OF_SINGLE_LINE);
+		memset(buff, 0, BUFFER_SIZE);
 	}
 	printf("End of File Writer\n");
 	fclose(fp);
@@ -93,8 +94,8 @@ void* socketThreadFT(void *arg)
 
 	pthread_mutex_lock(&lock);
 	 // 8. Receive incoming file from client
-	char filename[BUFFER_SIZE] = {0};
-	if (recv(connfd, filename, BUFFER_SIZE,0) == -1) {
+	char filename[MAX_NAME] = {0};
+	if (recv(connfd, filename, MAX_NAME,0) == -1) {
 		perror("Unable to receive file due to connection or file error");
 		exit(1);
 	}
@@ -126,12 +127,12 @@ void* socketThreadFT(void *arg)
 		
 		pthread_mutex_lock(&lock);
 		// 13. Receive incoming checkSum from client
-		char numberstring[BUFFER_SIZE] = {0};
-		if (recv(connfd, numberstring, BUFFER_SIZE,0) == -1) {
+		char numberstring[MAX_NAME] = {0};
+		if (recv(connfd, numberstring, MAX_NAME,0) == -1) {
 			perror("Unable to receive file due to connection or file error");
 			exit(1);
 		}
-		char checkSumstring[BUFFER_SIZE];
+		char checkSumstring[MAX_NAME];
 		sprintf(checkSumstring, "%d", checkSum);
 		printf("Calculated CheckSum: %s and Received CheckSum : %s\n", (char*)checkSumstring, (char*)numberstring);
 		
@@ -198,8 +199,8 @@ int main(int argc, char *argv[]) {
 	int val = 0;
 	pthread_mutex_lock(&lock);
 
-	char conString[BUFFER_SIZE] = {0};
-	if (recv(cfd, conString, BUFFER_SIZE,0) == -1) {
+	char conString[MAX_NAME] = {0};
+	if (recv(cfd, conString, MAX_NAME,0) == -1) {
 		perror("Unable to receive concurrency due to connection or file error");
 		exit(1);
 	}
