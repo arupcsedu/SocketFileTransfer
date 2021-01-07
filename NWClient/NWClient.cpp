@@ -38,6 +38,8 @@ typedef struct Threadparam {
 
 pthread_t tid[MAX_FILE_COUNT];
 
+// ToDo : Add checkSum calculation method
+// Status: Done
 unsigned calculateChecksum(void *buffer, size_t len)
 {
 	unsigned char *buf = (unsigned char *)buffer;
@@ -46,34 +48,45 @@ unsigned calculateChecksum(void *buffer, size_t len)
 
 	for (i = 0; i < len; ++i)
 	    checkSum += (unsigned int)(*buf++);
+	//printf("%d\n", checkSum);
 	return checkSum;
 }
 
 unsigned int fileSender(FILE *filePointer, int sockfd) {
 	// 13.1 Declare the data size
-	int maxLen;
+
 
 	// 13.2 Declare and Initalize the buffer for a single file
+
+
+
+	printf("File Sending In progress.......\n");
 	char lineBuffer[BUFFER_SIZE] = {0};
 	unsigned int checkSum = 0;
-
+	int maxLen = 0;
 	// 13.3 Read the data from file in a loop
 	while ((maxLen = fread(lineBuffer, sizeof(char), BUFFER_SIZE, filePointer)) > 0) {
-	if (maxLen != BUFFER_SIZE && ferror(filePointer)) {
-	    perror("Unable to read file");
-	    exit(1);
+		if (maxLen != BUFFER_SIZE && ferror(filePointer)) {
+		    perror("Unable to read file");
+		    exit(1);
+		}
+		printf("File is Sending to Socket : %d\n", sockfd);
+		checkSum += calculateChecksum(lineBuffer, maxLen);
+		//printf("File Size: %d\n", maxLen);
+		
+		// 13.4 Send each line from buffer through TCP socket
+		if (send(sockfd, lineBuffer, maxLen,0) == -1) {
+		    perror("Unable to send file");
+		    exit(1);
+		}
+		memset(lineBuffer, '\0', BUFFER_SIZE);
 	}
-	checkSum += calculateChecksum(lineBuffer, maxLen);
-	// 13.4 Send each line from buffer through TCP socket
-	if (send(sockfd, lineBuffer, maxLen,0) == -1) {
-	    perror("Unable to send file");
-	    exit(1);
-	}
-	memset(lineBuffer, 0, BUFFER_SIZE);
-	}
+	fclose(filePointer);
+	close(sockfd);
+
 	return checkSum;
 }
-// ToDo : Add checkSum calculation method
+
 
 void *threadForFileTransfer(void *vargp) 
 { 
@@ -122,7 +135,7 @@ void *threadForFileTransfer(void *vargp)
 	pthread_mutex_unlock(&lock);
 	sleep(1);
 	// 12. Create File pointers
-
+	
 
 	FILE *filePointer = fopen(sockParams->filePath, "rb");
 	if (filePointer == NULL) {
@@ -131,31 +144,42 @@ void *threadForFileTransfer(void *vargp)
 	}
 	unsigned int checkSum = 0;
 	// 13. Send file through socket.
-	pthread_mutex_lock(&lock);
 	checkSum = fileSender(filePointer, sockfd);
 	printf("%s file is sent successfully.\n",sockParams->fileName);
-	pthread_mutex_unlock(&lock);
-	sleep(1);
 
- 
-	char numberstring[MAX_NAME];
-	sprintf(numberstring, "%d", checkSum);
-	printf("CheckSum is: %s \n", (char*)numberstring);
 
-	//pthread_mutex_lock(&lock);
-	if (send(sockfd, numberstring, MAX_NAME, 0) == -1) {
-		perror("Unable to send CheckSum");
-		exit(1);
-	}
+ 	//pthread_mutex_lock(&lock);
+
+	// 15. Send EOF notification
+	//char eofNoti[MAX_NAME];
+	//strcpy(eofNoti, "EOF");
+	//if (send(sockfd, eofNoti, MAX_NAME, 0) == -1) {
+	//	perror("Unable to send EOF");
+	//	exit(1);
+	//}
 	//pthread_mutex_unlock(&lock);
 	//sleep(1);
 
-	// 14. Close the file pointer
-	fclose(filePointer);
+	//pthread_mutex_lock(&lock);
+	
+	// 16. Send the checkSum
+	//char numberstring[MAX_NAME];
+	//sprintf(numberstring, "%d", checkSum);
+	//printf("CheckSum is: %s \n", (char*)numberstring);
 
 
-	// 15. Close socket after sending single file.
-	close(sockfd);
+	//if (send(sockfd, numberstring, MAX_NAME, 0) == -1) {
+	//	perror("Unable to send CheckSum");
+	//	exit(1);
+	//}
+	//pthread_mutex_unlock(&lock);
+	//sleep(1);
+
+	// 17. Close the file pointer
+	//fclose(filePointer);
+
+
+	// 18. Close socket after sending single file.
 	pthread_exit(NULL);
 } 
 void sendConcurrencyNumber(char *ipAddr, int noOfconcurrency) {
