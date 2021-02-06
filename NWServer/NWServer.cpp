@@ -21,6 +21,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <assert.h>
+#include <time.h>
 
 #define MAX_LENGTH_OF_SINGLE_LINE 4096
 
@@ -30,7 +32,7 @@
 
 #define BUFFER_SIZE 100000
 #define MAX_NAME 1000
-#define MAX_THREAD 4 
+#define MAX_THREAD 100
 // ToDo: This will be Dynamic; 
 // Status: Done
 
@@ -47,25 +49,30 @@ unsigned calculateChecksum(void *buffer, size_t len)
 
 	for (i = 0; i < len; ++i)
 	    checkSum += (unsigned int)(*buf++);
-	//printf("%d\n", checkSum);
 	return checkSum;
 }
 
 // This is a utility function for writing data into file
 
-unsigned int fileWriter(int sockfd, FILE *fp) {
+unsigned int fileWriter(char *fileName, int sockfd, FILE *fp) {
 	// 11.1 Declare data length
 	int n;
 	// 11.2 Declare and Initialize buffer size
 
-	printf("File Receiving In progress.......\n");
+	time_t t = time(NULL);
+	struct tm *tm = localtime(&t);
+	char s[64];
+	assert(strftime(s, sizeof(s), "%c", tm));
+	//printf("%s\n", s);
+
+	printf("%s file Receiving is started in Connection ID: %d at :  %s\n", fileName, sockfd, s);
 
 	// 11.3 Receive data from socket and save into buffer
 	unsigned int checkSum = 0;
 	char buff[BUFFER_SIZE] = {0};
 	while(1) {		
 		n = recv(sockfd, buff, BUFFER_SIZE,0);
-		printf("File is receiving from Socket : %d\n", sockfd);
+		//printf("File is receiving from Socket : %d\n", sockfd);
 		if (n == -1) {
 			perror("Error in Receiving File");
 			exit(1);
@@ -82,12 +89,10 @@ unsigned int fileWriter(int sockfd, FILE *fp) {
 			exit(1);
 		}
 
-		printf("File content is : %s\n", buff);
 		// 11.5 Allocate buffer
 		memset(buff, '\0', BUFFER_SIZE);
 	}
 	fclose(fp);
-	close(sockfd);
 	return checkSum;
 }
 
@@ -106,16 +111,15 @@ void* socketThreadFT(void *arg)
 		perror("Unable to receive file due to connection or file error");
 		exit(1);
 	}
-	pthread_mutex_unlock(&lock);
-	sleep(1);
 
 	int fileLength = strlen(filename);
-
+	pthread_mutex_unlock(&lock);
+	sleep(1);
 
 	if(fileLength > 0) {
 		// 9. After receiving from client, create file to save data
 
-		printf("File Name : %s\n", filename);
+		//printf("File Name : %s\n", filename);
 		FILE *fp = fopen(filename, "wb");
 		if (fp == NULL) {
 			perror("Unable to create File pointer");
@@ -127,38 +131,20 @@ void* socketThreadFT(void *arg)
 
 		// 11. Write the data into file.
 
-		checkSum = fileWriter(connfd, fp);
+		checkSum = fileWriter(filename, connfd, fp);
 
 		// 12. Print success message into console
-
-
-		//pthread_mutex_lock(&lock);
-		// 13. Receive incoming checkSum from client
-		//char numberstring[MAX_NAME] = {0};
-		//if (recv(connfd, numberstring, MAX_NAME,0) == -1) {
-		//	perror("Unable to receive file due to connection or file error");
-		//	exit(1);
-		//}
-		//pthread_mutex_unlock(&lock);
-		//sleep(1);
-		//pthread_mutex_lock(&lock);
-		//char checkSumstring[MAX_NAME];
-		//sprintf(checkSumstring, "%d", checkSum);
-		//printf("Calculated CheckSum: %s and Received CheckSum : %s\n", (char*)checkSumstring, (char*)numberstring);
 		
-		/*if(strcmp(checkSumstring, numberstring))
-			printf("Error in receiving file.\n");
-		
-		else*/
-		printf("Received file name : %s\n",filename);
-		//pthread_mutex_unlock(&lock);
-		//sleep(1);
+		time_t t = time(NULL);
+		struct tm *tm = localtime(&t);
+		char s[64];
+		assert(strftime(s, sizeof(s), "%c", tm));
 
-			
-
+		printf("%s is received with checkSum %d at :  %s\n",filename, checkSum,s);
 
 	}
-		       
+
+	close(connfd);	       
 	pthread_exit(NULL);
 
 }
@@ -216,12 +202,12 @@ int main(int argc, char *argv[]) {
 	}
 	char *numstr = basename(conString);
 	val = atoi(numstr);
-	printf("Concurrency Number: %d\n", val);
+	printf("Number of files to receive: %d\n", val);
 	close(cfd);
 	pthread_mutex_unlock(&lock);
+	
 
 	
-	int i = 0;
 	int *new_sock;
 	pthread_t tid[60];
 	int idx = 0;
@@ -237,22 +223,14 @@ int main(int argc, char *argv[]) {
 
 		new_sock = (int*)malloc(1);
 		*new_sock = connfd;
-		printf("Connection ID: %d\n", *new_sock);
+		//printf("Connection ID: %d\n", *new_sock);
 		// 8. Multi-Thread creation
 		if(pthread_create(&tid[idx], NULL, socketThreadFT, (void*)new_sock) < 0 ) {
 			printf("Failed to create thread\n");
 			exit(1);
 		}
+
 		idx++;
-		sleep(1);	
-		// 9. Thread Execute 
-		if(idx == val) {
-			idx = 0;
-			while(idx != val) {
-				pthread_join(tid[idx++],NULL);
-			}
-			i = 0;
-		}
     
 	}
 
