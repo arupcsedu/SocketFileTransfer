@@ -20,12 +20,12 @@ Development Environment: Ubuntu 18.04
 - [x] Use pack tracer to check concurrency at client and server interface.
 - [x] Dynamic concurrency number from user inputs.
 - [x] Create a dataset with 100 files and transfer with concurrency 1, 2,4 and 8 and measure throughput. 
-- [ ] Once the test is done, draw a figure for concurrency value vs throughput.
+- [x] Once the test is done, draw a figure for concurrency value vs throughput.
 
 ## Prepare
 ```c++
-$ git pull https://github.com/arupcsedu/NWFileTransfer.git  
-$ cd NWFileTransfer  
+$ git pull origin https://github.com/arupcsedu/SocketFileTransfer.git  
+$ cd SocketFileTransfer  
 ```
 ## Build and Run Server
 ```c++
