@@ -45,5 +45,10 @@ $ ./NWClient res 127.0.0.1 4
 // argv[2] = 127.0.0.1 (loopback ip address to run in same pc. But it can be replaced by server ip address)
 // argv[3] = 4 (Number of files can be sent concurrently)
 ```
+## Performance Analysis
+![Receiving Time vs File](image.png)
+
+![RT-ST vs File Size](image1.png)
+
 
 
